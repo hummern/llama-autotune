@@ -1,0 +1,5 @@
+# llama-autotune has no external Python dependencies.
+# All detection uses system tools: lscpu, nvidia-smi, rocminfo, vulkaninfo, etc.
+
+# If you want to pip install anyway (for development / editable installs):
+# pip install -e .

@@ -1,0 +1,25 @@
+# Intel GPU benchmark config (Arc / iGPU)
+# Prefers SYCL; falls back to Vulkan if SYCL unavailable.
+
+purpose: fallback
+purpose_description: Intel GPUs often have limited VRAM. Conservative grid.
+
+grid:
+  threads: [2, 4, 6, 8]
+  gpu_layers: [0, 2, 4, 6, 8, 12, 16]
+  batch_sizes: [64, 128, 256, 512]
+  ubatch_sizes: [32, 64, 128, 256]
+  contexts: [4096, 8192, 16384, 32768]
+  flash_attn: [true, false]
+  kv_cache_q: [none, q4_0, q8_0]
+  mlock: [true, false]
+  mmap: [true, false]
+
+scoring:
+  prompt_weight: 0.25
+  gen_weight: 0.35
+  context_weight: 0.15
+  resource_weight: 0.25
+
+prompt: "Hello"
+gen_tokens: 128

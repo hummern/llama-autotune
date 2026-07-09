@@ -25,6 +25,91 @@ Hermes
 
 Since llama.cpp spends most of its time idle as a fallback, every parameter choice should err on the side of leaving resources for Hermes, not chasing benchmark numbers.
 
+## Automated Tuning (Python Framework)
+
+The manual benchmark checklist below is the educational reference. The project also includes a **Python framework** that automates the entire tuning pipeline:
+
+```bash
+# One command to find the optimal Hermes fallback config
+python -m llama_autotune --model ~/models/model.gguf --purpose fallback
+
+# Maximise raw throughput instead
+python -m llama_autotune --model ~/models/model.gguf --purpose primary
+
+# Output as JSON for scripting
+python -m llama_autotune --model ~/models/model.gguf --json
+
+# Just inspect your hardware
+python -m llama_autotune --model ~/models/model.gguf --validate-only
+```
+
+### Architecture
+
+```
+llama-autotune/
+├── llama_autotune/
+│   ├── autotune.py        # Main entry point / orchestrator
+│   ├── hardware.py        # CPU, RAM, GPU, storage, OS detection
+│   ├── build_detector.py  # Recommend best llama.cpp backend (CUDA/HIP/Vulkan/SYCL/CPU)
+│   ├── benchmark.py       # Parameter grid runner, OOM detection, TPS parsing
+│   ├── scoring.py         # Weighted scoring — throughput vs resource usage
+│   ├── recommendations.py # Produce ready-to-use llama-cli commands
+│   └── report.py          # Markdown report with tables and command blocks
+├── configs/
+│   ├── cpu_only.yaml      # Preset for CPU-only hardware
+│   ├── nvidia.yaml        # Preset for NVIDIA GPUs
+│   ├── amd.yaml           # Preset for AMD GPUs
+│   └── intel_gpu.yaml     # Preset for Intel Arc / iGPU
+└── reports/               # Generated reports land here
+```
+
+### Pipeline (7 phases)
+
+| Phase | Module | What it does |
+|-------|--------|--------------|
+| **1. Detect** | `hardware.py` | Reads `lscpu`, `nvidia-smi`, `rocminfo`, `vulkaninfo`, `sycl-ls`, `free`, `dmidecode`, `/proc/meminfo`, `lsblk` |
+| **2. Recommend build** | `build_detector.py` | Maps detected GPU vendor → optimal CMake backend (`-DGGML_CUDA=ON`, `-DGGML_HIP=ON`, `-DGGML_VULKAN=ON`, `-DGGML_SYCL=ON`) |
+| **3. Build grid** | `benchmark.py` | Generates a cross-product of threads × GPU layers × batch × ubatch × context × FA × KV cache × mlock × mmap, pruned to hardware limits |
+| **4. Benchmark** | `benchmark.py` | Runs `llama-cli` for each config, parses `llama_print_timings`, detects OOM (`cudaMalloc failed`, segfaults, `std::bad_alloc`) |
+| **5. Score** | `scoring.py` | Weighted formula: `prompt_tps × 0.25 + gen_tps × 0.35 + context × 0.15 + resource_penalty × 0.25` (fallback mode penalises CPU hogging) |
+| **6. Recommend** | `recommendations.py` | Produces two configs: **primary** (max throughput) and **fallback** (resource-aware for Hermes) |
+| **7. Report** | `report.py` | Markdown with hardware table, build recommendation, top configs with copy-paste commands, top-20 results table, OOM/failure log |
+
+### Scoring — What "best" means
+
+The scoring weights differ by purpose:
+
+**Fallback mode (default):**
+```
+Score = prompt_tps_norm × 0.25
+      + gen_tps_norm    × 0.35
+      + context_norm    × 0.15
+      + resource_score  × 0.25        ← heavy penalty for CPU hogging
+      + stability_bonus (32K+ context, mlock)
+```
+
+**Primary mode (max throughput):**
+```
+Score = prompt_tps_norm × 0.35
+      + gen_tps_norm    × 0.45
+      + context_norm    × 0.15
+      + resource_score  × 0.05        ← minimal penalty
+```
+
+The resource score penalises thread counts that saturate the CPU. On a 4-core / 8-thread machine, using all 8 threads gets dinged harder in fallback mode because Hermes needs those cores too.
+
+### OOM handling
+
+The benchmark module recognises these failure patterns in stderr:
+
+- `cudaMalloc failed`
+- `out of memory`
+- `failed to allocate`
+- `Segmentation fault` / `SIGSEGV`
+- `std::bad_alloc`
+
+When OOMs are detected, the grid is dynamically pruned — higher GPU layers, larger contexts, and bigger batch sizes that caused OOM are removed from the remaining search space.
+
 ## Reference Hardware & Results
 
 This tool was developed and validated on an older laptop. The benchmark data below serves as a representative case study — the same methodology applies to any hardware.

@@ -1,0 +1,26 @@
+# AMD GPU benchmark config
+# Prefers HIP/ROCm; falls back to Vulkan if ROCm unavailable.
+
+purpose: fallback
+purpose_description: Leave resources for Hermes. Test both HIP and Vulkan paths if available.
+
+grid:
+  threads: [2, 4, 6, 8]
+  gpu_layers: [0, 2, 4, 6, 8, 12, 16, 20, 24, 32]
+  batch_sizes: [64, 128, 256, 512, 1024]
+  ubatch_sizes: [32, 64, 128, 256, 512]
+  contexts: [4096, 8192, 16384, 32768]
+  flash_attn: [true, false]
+  kv_cache_q: [none, q4_0, q8_0]
+  mlock: [true, false]
+  mmap: [true, false]
+
+scoring:
+  prompt_weight: 0.25
+  gen_weight: 0.35
+  context_weight: 0.15
+  resource_weight: 0.25
+
+# Use a medium-length prompt representative of real usage
+prompt: "Write a complete Python implementation of a threaded web crawler with retry logic, logging, unit tests and documentation."
+gen_tokens: 256

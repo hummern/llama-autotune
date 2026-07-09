@@ -1,0 +1,25 @@
+# CPU-only benchmark config
+# No GPU — focus on thread count, batch size, and memory modes.
+
+purpose: fallback
+purpose_description: Leave half the cores for the host agent.
+
+grid:
+  threads: [2, 4, 6, 8]
+  gpu_layers: [0]
+  batch_sizes: [64, 128, 256, 512, 1024]
+  ubatch_sizes: [32, 64, 128, 256]
+  contexts: [4096, 8192, 16384, 32768]
+  flash_attn: [true, false]
+  kv_cache_q: [none, q4_0, q8_0]
+  mlock: [true, false]
+  mmap: [true, false]
+
+scoring:
+  prompt_weight: 0.25
+  gen_weight: 0.40
+  context_weight: 0.15
+  resource_weight: 0.20
+
+prompt: "Write a detailed explanation of how quicksort works, including pseudocode, complexity analysis, and practical optimizations."
+gen_tokens: 256

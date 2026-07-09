@@ -1,0 +1,25 @@
+# NVIDIA GPU benchmark config
+# Tests CUDA offloading, flash attention, and KV cache quantization.
+
+purpose: fallback
+purpose_description: Leave resources for Hermes. Don't max VRAM.
+
+grid:
+  threads: [2, 4, 6, 8]
+  gpu_layers: [0, 2, 4, 6, 8, 12, 16, 20, 24, 32]
+  batch_sizes: [64, 128, 256, 512, 1024]
+  ubatch_sizes: [32, 64, 128, 256, 512]
+  contexts: [4096, 8192, 16384, 32768, 65536]
+  flash_attn: [true, false]       # FA required for quant KV but test without too
+  kv_cache_q: [none, q4_0, q8_0]
+  mlock: [true, false]
+  mmap: [true, false]
+
+scoring:
+  prompt_weight: 0.25
+  gen_weight: 0.35
+  context_weight: 0.15
+  resource_weight: 0.25           # Heavier resource penalty for fallback
+
+prompt: "Explain the design of a compiler from parsing to code generation, with trade-offs at each stage."
+gen_tokens: 256
